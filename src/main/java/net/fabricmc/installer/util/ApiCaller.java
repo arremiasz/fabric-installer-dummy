@@ -19,10 +19,9 @@ public class ApiCaller {
 	 *
 	 * @param slug              The Modrinth project slug (e.g., "itemlore" or a full URL to strip).
 	 * @param targetGameVersion The game version you want (e.g. "1.21.3").
-	 * @param targetLoader      The loader you want (e.g. "fabric").
 	 * @param destination       The folder path where the file will be downloaded (e.g., "./downloads").
 	 */
-	public static void apiGrabMod(String slug, String targetGameVersion, String targetLoader, String destination) {
+	public static void apiGrabMod(String slug, String targetGameVersion, String destination) {
 		OkHttpClient client = new OkHttpClient();
 
 		// 1) Strip "https://modrinth.com/mod/" if present
@@ -47,6 +46,7 @@ public class ApiCaller {
 				return;
 			}
 
+			assert projectResponse.body() != null;
 			String projectJson = projectResponse.body().string();
 			System.out.println("[DEBUG] Project JSON: " + projectJson);
 
@@ -64,7 +64,7 @@ public class ApiCaller {
 				return;
 			}
 			JsonArray versionIds = projectObj.get("versions").getAsJsonArray();
-			if (versionIds.size() == 0) {
+			if (versionIds.isEmpty()) {
 				System.out.println("[ERROR] No version IDs found in the project.");
 				return;
 			}
@@ -101,6 +101,7 @@ public class ApiCaller {
 						continue; // skip to next
 					}
 
+					assert versionResponse.body() != null;
 					String versionJson = versionResponse.body().string();
 					System.out.println("[DEBUG] Version JSON for " + versionId + ": " + versionJson);
 
@@ -142,14 +143,14 @@ public class ApiCaller {
 
 					boolean matchesLoader = false;
 					for (JsonElement loaderElem : loadersArray) {
-						if (loaderElem.getAsString().equalsIgnoreCase(targetLoader)) {
+						if (loaderElem.getAsString().equalsIgnoreCase("fabric")) {
 							matchesLoader = true;
 							break;
 						}
 					}
 					if (!matchesLoader) {
 						System.out.println("[DEBUG] Version ID " + versionId + " does not match loader: "
-								+ targetLoader);
+								+ "fabric");
 						continue; // check the next version
 					}
 
@@ -162,7 +163,7 @@ public class ApiCaller {
 						continue;
 					}
 					JsonArray filesArray = versionObj.get("files").getAsJsonArray();
-					if (filesArray.size() == 0) {
+					if (filesArray.isEmpty()) {
 						System.out.println("[WARN] Empty files array for version ID " + versionId);
 						continue;
 					}
@@ -196,6 +197,7 @@ public class ApiCaller {
 						// Write file to disk
 						File outFile = new File(dir, filename);
 						System.out.println("[DEBUG] Saving to: " + outFile.getAbsolutePath());
+						assert fileResp.body() != null;
 						try (InputStream in = fileResp.body().byteStream();
 							 FileOutputStream fos = new FileOutputStream(outFile)) {
 							byte[] buffer = new byte[8192];
@@ -222,7 +224,7 @@ public class ApiCaller {
 
 			if (!foundMatch) {
 				System.out.println("[INFO] No version found matching game version '" + targetGameVersion
-						+ "' and loader '" + targetLoader + "'.");
+						+ "' and loader '" + "fabric" + "'.");
 			}
 
 		} catch (IOException e) {
