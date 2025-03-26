@@ -42,11 +42,8 @@ public class ApiCaller {
 		OkHttpClient client = new OkHttpClient();
 
 		// 1) Strip "https://modrinth.com/mod/" if present
-		String prefix = "https://modrinth.com/mod/";
+		slug = slug.replaceFirst("^(https?://)?(www\\.)?modrinth\\.com/mod/", "");
 
-		if (slug.startsWith(prefix)) {
-			slug = slug.substring(prefix.length());
-		}
 
 		// 2) Fetch the project details
 		String projectUrl = "https://api.modrinth.com/v2/project/" + slug;
@@ -251,7 +248,8 @@ public class ApiCaller {
 	// Optional main method for quick testing
 	public static void test(String[] args) {
 		// Example usage: "itemlore" for game version "1.21.3" and "fabric"
-		//apiGrabMod("itemlore", "1.16", "./downloads");
+		//apiGrabMod("https://modrinth.com/mod/itemlore", "1.21.4", "./downloads");
+		//apiGrabMod("modrinth.com/mod/itemlore", "1.21.4", "./downloads");
 		//apiGrabMod("https://modrinth.com/mod/xaeros-minimap", "1.21.3",  "./downloads");
 		//apiGrabMod("https://modrinth.com/mod/xaeros-world-map", "1.21.3",  "./downloads");
 	}
