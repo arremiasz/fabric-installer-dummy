@@ -28,12 +28,12 @@ public class ApiCaller {
 		String prefix = "https://modrinth.com/mod/";
 		if (slug.startsWith(prefix)) {
 			slug = slug.substring(prefix.length());
-			System.out.println("[DEBUG] Stripped slug: " + slug);
+//			System.out.println("[DEBUG] Stripped slug: " + slug);
 		}
 
 		// 2) Fetch the project details
 		String projectUrl = "https://api.modrinth.com/v2/project/" + slug;
-		System.out.println("[DEBUG] Fetching project info from: " + projectUrl);
+//		System.out.println("[DEBUG] Fetching project info from: " + projectUrl);
 
 		Request projectRequest = new Request.Builder()
 				.url(projectUrl)
@@ -48,7 +48,7 @@ public class ApiCaller {
 
 			assert projectResponse.body() != null;
 			String projectJson = projectResponse.body().string();
-			System.out.println("[DEBUG] Project JSON: " + projectJson);
+//			System.out.println("[DEBUG] Project JSON: " + projectJson);
 
 			// Parse the project JSON
 			JsonElement projectRoot = JsonParser.parseString(projectJson);
@@ -68,13 +68,13 @@ public class ApiCaller {
 				System.out.println("[ERROR] No version IDs found in the project.");
 				return;
 			}
-			System.out.println("[DEBUG] Found " + versionIds.size() + " version IDs.");
+//			System.out.println("[DEBUG] Found " + versionIds.size() + " version IDs.");
 
 			// Ensure the destination directory exists
 			File dir = new File(destination);
 			if (!dir.exists()) {
 				if (dir.mkdirs()) {
-					System.out.println("[DEBUG] Created directory: " + dir.getAbsolutePath());
+//					System.out.println("[DEBUG] Created directory: " + dir.getAbsolutePath());
 				}
 			}
 
@@ -83,11 +83,11 @@ public class ApiCaller {
 			boolean foundMatch = false;
 			for (int i = versionIds.size() - 1; i >= 0; i--) {
 				String versionId = versionIds.get(i).getAsString();
-				System.out.println("[DEBUG] Checking version ID (reverse order): " + versionId);
+//				System.out.println("[DEBUG] Checking version ID (reverse order): " + versionId);
 
 				// 4a) Fetch the version details
 				String versionUrl = "https://api.modrinth.com/v2/version/" + versionId;
-				System.out.println("[DEBUG] Fetching version info from: " + versionUrl);
+//				System.out.println("[DEBUG] Fetching version info from: " + versionUrl);
 
 				Request versionRequest = new Request.Builder()
 						.url(versionUrl)
@@ -103,7 +103,7 @@ public class ApiCaller {
 
 					assert versionResponse.body() != null;
 					String versionJson = versionResponse.body().string();
-					System.out.println("[DEBUG] Version JSON for " + versionId + ": " + versionJson);
+//					System.out.println("[DEBUG] Version JSON for " + versionId + ": " + versionJson);
 
 					JsonElement versionRoot = JsonParser.parseString(versionJson);
 					if (!versionRoot.isJsonObject()) {
@@ -118,7 +118,7 @@ public class ApiCaller {
 						continue;
 					}
 					JsonArray gameVersions = versionObj.get("game_versions").getAsJsonArray();
-					System.out.println("[DEBUG] game_versions for " + versionId + ": " + gameVersions);
+//					System.out.println("[DEBUG] game_versions for " + versionId + ": " + gameVersions);
 
 					boolean matchesVersion = false;
 					for (JsonElement gvElement : gameVersions) {
@@ -128,8 +128,7 @@ public class ApiCaller {
 						}
 					}
 					if (!matchesVersion) {
-						System.out.println("[DEBUG] Version ID " + versionId + " does not match game version: "
-								+ targetGameVersion);
+//						System.out.println("[DEBUG] Version ID " + versionId + " does not match game version: " + targetGameVersion);
 						continue; // check the next version
 					}
 
@@ -139,7 +138,7 @@ public class ApiCaller {
 						continue;
 					}
 					JsonArray loadersArray = versionObj.get("loaders").getAsJsonArray();
-					System.out.println("[DEBUG] loaders for " + versionId + ": " + loadersArray);
+//					System.out.println("[DEBUG] loaders for " + versionId + ": " + loadersArray);
 
 					boolean matchesLoader = false;
 					for (JsonElement loaderElem : loadersArray) {
@@ -149,8 +148,7 @@ public class ApiCaller {
 						}
 					}
 					if (!matchesLoader) {
-						System.out.println("[DEBUG] Version ID " + versionId + " does not match loader: "
-								+ "fabric");
+//						System.out.println("[DEBUG] Version ID " + versionId + " does not match loader: "+ "fabric");
 						continue; // check the next version
 					}
 
@@ -196,7 +194,7 @@ public class ApiCaller {
 
 						// Write file to disk
 						File outFile = new File(dir, filename);
-						System.out.println("[DEBUG] Saving to: " + outFile.getAbsolutePath());
+//						System.out.println("[DEBUG] Saving to: " + outFile.getAbsolutePath());
 						assert fileResp.body() != null;
 						try (InputStream in = fileResp.body().byteStream();
 							 FileOutputStream fos = new FileOutputStream(outFile)) {
@@ -233,11 +231,11 @@ public class ApiCaller {
 		}
 	}
 
-//	// Optional main method for quick testing
-//	public static void main(String[] args) {
-//		// Example usage: "itemlore" for game version "1.21.3" and "fabric"
-//		apiGrabMod("itemlore", "1.21.3", "fabric", "./downloads");
-//		apiGrabMod("https://modrinth.com/mod/xaeros-minimap", "1.21.3", "fabric", "./downloads");
-//		apiGrabMod("https://modrinth.com/mod/xaeros-world-map", "1.21.3", "fabric", "./downloads");
-//	}
+	// Optional main method for quick testing
+	public static void main(String[] args) {
+		// Example usage: "itemlore" for game version "1.21.3" and "fabric"
+		apiGrabMod("itemlore", "1.16", "./downloads");
+//		apiGrabMod("https://modrinth.com/mod/xaeros-minimap", "1.21.3",  "./downloads");
+//		apiGrabMod("https://modrinth.com/mod/xaeros-world-map", "1.21.3",  "./downloads");
+	}
 }
