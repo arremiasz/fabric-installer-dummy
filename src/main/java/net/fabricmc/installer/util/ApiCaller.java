@@ -44,7 +44,6 @@ public class ApiCaller {
 		// 1) Strip "https://modrinth.com/mod/" if present
 		slug = slug.replaceFirst("^(https?://)?(www\\.)?modrinth\\.com/mod/", "");
 
-
 		// 2) Fetch the project details
 		String projectUrl = "https://api.modrinth.com/v2/project/" + slug;
 
