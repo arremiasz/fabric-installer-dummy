@@ -63,6 +63,7 @@ public abstract class Handler implements InstallerProgress {
 	protected static String requestedMCVersion;
 	protected static String requestedFabricVersion;
 	protected static boolean SNAPSHOTS;
+	protected static String[] mods;
 
 	protected static final String SELECT_CUSTOM_ITEM = "(select custom)";
 
@@ -95,6 +96,11 @@ public abstract class Handler implements InstallerProgress {
 					requestedMCVersion = settings.MCVersion;
 					requestedFabricVersion = settings.FabricVersion;
 					SNAPSHOTS = settings.snapshots;
+					mods = new String[settings.Modrinth.length];
+
+					for (int i = 0; i < settings.Modrinth.length; i++) {
+						mods[i] = settings.Modrinth[i];
+					}
 				} catch (IOException e) {
 					throw new RuntimeException(e);
 				}

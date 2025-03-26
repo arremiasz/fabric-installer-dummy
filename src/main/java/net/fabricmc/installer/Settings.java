@@ -20,7 +20,7 @@ public class Settings {
 	public String MCVersion;
 	public String FabricVersion;
 	public boolean snapshots;
-	public String[] Modrinth = new String[0];
+	public String[] Modrinth;
 
 	public Settings(String mc, String fabric, boolean snapshots) {
 		MCVersion = mc;

@@ -33,16 +33,7 @@ import java.text.MessageFormat;
 import java.util.List;
 import java.util.Locale;
 
-import javax.swing.ImageIcon;
-import javax.swing.JButton;
-import javax.swing.JCheckBox;
-import javax.swing.JComboBox;
-import javax.swing.JEditorPane;
-import javax.swing.JLabel;
-import javax.swing.JOptionPane;
-import javax.swing.JPanel;
-import javax.swing.JTextField;
-import javax.swing.SwingUtilities;
+import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.event.HyperlinkEvent;
 
@@ -51,6 +42,7 @@ import net.fabricmc.installer.InstallerGui;
 import net.fabricmc.installer.LoaderVersion;
 import net.fabricmc.installer.Main;
 import net.fabricmc.installer.launcher.MojangLauncherHelperWrapper;
+import net.fabricmc.installer.util.ApiCaller;
 import net.fabricmc.installer.util.ArgumentParser;
 import net.fabricmc.installer.util.InstallerProgress;
 import net.fabricmc.installer.util.MetaHandler;
@@ -60,6 +52,7 @@ import net.fabricmc.installer.util.Utils;
 
 public class ClientHandler extends Handler {
 	private JCheckBox createProfile;
+	private JProgressBar progressBar;
 
 	@Override
 	public JPanel makePanel(InstallerGui installerGui) {
@@ -79,6 +72,8 @@ public class ClientHandler extends Handler {
 				updateGameVersions();
 			}
 		});
+		gameVersionComboBox.setVisible(false);
+		snapshotCheckBox.setVisible(false);
 
 		Main.GAME_VERSION_META.onComplete(versions -> {
 			updateGameVersions();
@@ -99,6 +94,7 @@ public class ClientHandler extends Handler {
 		});
 
 		addRow(pane, c, "prompt.loader.version", loaderVersionComboBox = new JComboBox<>());
+		loaderVersionComboBox.setVisible(false);
 
 		addRow(pane, c, "prompt.select.location", installLocation = new JTextField(20), selectFolderButton = new JButton());
 		selectFolderButton.setText("...");
@@ -110,11 +106,16 @@ public class ClientHandler extends Handler {
 		addRow(pane, c, null, statusLabel = new JLabel());
 		statusLabel.setText(Utils.BUNDLE.getString("prompt.loading.versions"));
 
-		addLastRow(pane, c, null, buttonInstall = new JButton(Utils.BUNDLE.getString("prompt.install")));
+		addRow(pane, c, null, buttonInstall = new JButton(Utils.BUNDLE.getString("prompt.install")));
 		buttonInstall.addActionListener(e -> {
 			buttonInstall.setEnabled(false);
 			install();
 		});
+
+		addRow(pane, c, null, progressBar = new JProgressBar());
+		//progressBar.setString("");
+		progressBar.setVisible(false);
+		progressBar.setIndeterminate(false);
 
 		Main.LOADER_META.onComplete(versions -> {
 			int stableIndex = -1;
@@ -155,10 +156,7 @@ public class ClientHandler extends Handler {
 
 		pane.remove(0);
 		pane.remove(1);
-		gameVersionComboBox.setVisible(false);
-		loaderVersionComboBox.setVisible(false);
-		snapshotCheckBox.setVisible(false);
-		pane.remove(4);
+		//pane.remove(4);
 
 		return pane;
 	}
@@ -175,12 +173,43 @@ public class ClientHandler extends Handler {
 			return;
 		}
 
+		SwingUtilities.invokeLater(() -> progressBar.setVisible(true));
 		doInstall();
+		SwingUtilities.invokeLater(() -> progressBar.setValue(20));
+		SwingUtilities.invokeLater(() -> statusLabel.setText(Utils.BUNDLE.getString("prompt.install.mods.title")));
 		doManualModInstall();
+		SwingUtilities.invokeLater(() -> progressBar.setValue(80));
+		SwingUtilities.invokeLater(() -> statusLabel.setText(Utils.BUNDLE.getString("prompt.install.mods.modrinth")));
+		doModInstall();
+		SwingUtilities.invokeLater(() -> statusLabel.setText(Utils.BUNDLE.getString("progress.done")));
+		SwingUtilities.invokeLater(() -> progressBar.setValue(100));
 	}
 
 	// pulls mods from modrinth
 	private void doModInstall() {
+
+		if (mods.length == 1 && mods[0].equals("")) { return;}
+		// check if the mods directory exists
+		Path mcDir = Paths.get(installLocation.getText());
+		Path modsDir = mcDir.resolve("mods");
+
+		try {
+			if (Files.exists(modsDir) && Files.list(modsDir).count() > 0) {
+				int result = JOptionPane.showConfirmDialog(null, Utils.BUNDLE.getString("prompt.install.mods.overwrite"), Utils.BUNDLE.getString("prompt.install.mods.title"), JOptionPane.YES_NO_OPTION);
+
+				if (result != JOptionPane.YES_OPTION) {
+					return;
+				}
+			}
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
+
+		for (String mod : mods) {
+			ApiCaller.apiGrabMod(mod, requestedMCVersion, modsDir.toString());
+		}
+
+		SwingUtilities.invokeLater(this::showInstalledModsMessage);
 	}
 
 	// exe has to be in a directory with a folder containing mods
@@ -197,8 +226,9 @@ public class ClientHandler extends Handler {
 			Path exeModsDir = exeDir.resolve("mods");
 
 			if (Files.notExists(exeModsDir)) {
-				showFailedMessage(Utils.BUNDLE.getString("prompt.exception.missing"));
-				throw new RuntimeException(Utils.BUNDLE.getString("prompt.exception.missing"));
+				return;
+//				showFailedMessage(Utils.BUNDLE.getString("prompt.exception.missing"));
+//				throw new RuntimeException(Utils.BUNDLE.getString("prompt.exception.missing"));
 			}
 
 			// if there are files in the mods directory, pause the thread and ask the user if they want to overwrite them
@@ -281,7 +311,7 @@ public class ClientHandler extends Handler {
 					profileInstaller.setupProfile(profileName, gameVersion, launcherType);
 				}
 
-				SwingUtilities.invokeLater(() -> showInstalledMessage(loaderVersion.name, gameVersion, mcPath.resolve("mods")));
+				//SwingUtilities.invokeLater(() -> showInstalledMessage(loaderVersion.name, gameVersion, mcPath.resolve("mods")));
 			} catch (Exception e) {
 				error(e);
 			} finally {
