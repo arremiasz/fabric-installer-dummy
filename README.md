@@ -39,5 +39,5 @@ Minecraft version selected. If a specific version is desired, download the mod a
 the tool instead.
 
 # Authors
-arremiasz - https://github.com/arremiasz - Main Developer
+arremiasz - https://github.com/arremiasz - Main Developer\
 aidanfoss - https://github.com/aidanfoss - Modrinth API Caller
