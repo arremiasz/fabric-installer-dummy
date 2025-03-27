@@ -4,6 +4,9 @@ Configurable mod setup tool to send to your friends who struggle with mod instal
 This is designed for one user to set up the exe, and to share the ZIP output with friends and have them
 press the install button for an easy mod installation that doesn't require guidance.
 
+## Download
+You may find the latest release at https://github.com/arremiasz/fabric-mod-installer-tool/releases
+
 # How to use
 
 ## Setup
@@ -34,3 +37,7 @@ Paste links or the slug (https:\/\/modrinth.com/mod/`modmenu`) in their own line
 install mods from Modrinth. The installer will automatically grab the latest version of the mod matching the 
 Minecraft version selected. If a specific version is desired, download the mod and import it using 
 the tool instead.
+
+# Authors
+arremiasz - https://github.com/arremiasz - Main Developer
+aidanfoss - https://github.com/aidanfoss - Modrinth API Caller
