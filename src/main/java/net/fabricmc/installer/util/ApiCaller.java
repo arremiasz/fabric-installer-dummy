@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2016, 2017, 2018, 2019 FabricMC
+ * @author aidanfoss
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
  */
 
 package net.fabricmc.installer.util;
@@ -38,11 +27,16 @@ public class ApiCaller {
 	 * @param targetGameVersion The game version you want (e.g. "1.21.3").
 	 * @param destination       The folder path where the file will be downloaded (e.g., "./downloads").
 	 */
-	public static void apiGrabMod(String slug, String targetGameVersion, String destination) {
+	public static String apiGrabMod(String slug, String targetGameVersion, String destination) {
 		OkHttpClient client = new OkHttpClient();
+		String errors = "";
 
 		// 1) Strip "https://modrinth.com/mod/" if present
 		slug = slug.replaceFirst("^(https?://)?(www\\.)?modrinth\\.com/mod/", "");
+
+		if (slug.equals("")) {
+			return "";
+		}
 
 		// 2) Fetch the project details
 		String projectUrl = "https://api.modrinth.com/v2/project/" + slug;
@@ -52,7 +46,7 @@ public class ApiCaller {
 		try (Response projectResponse = client.newCall(projectRequest).execute()) {
 			if (!projectResponse.isSuccessful()) {
 				System.out.println("[ERROR] Project request failed. HTTP code: " + projectResponse.code());
-				return;
+				return "<br>" + slug + "<br>" + "[ERROR] Project request failed. HTTP code: " + projectResponse.code();
 			}
 
 			assert projectResponse.body() != null;
@@ -63,7 +57,7 @@ public class ApiCaller {
 
 			if (!projectRoot.isJsonObject()) {
 				System.out.println("[ERROR] Project JSON is not an object.");
-				return;
+				return "<br>" + slug + "<br>" + "[ERROR] Project JSON is not an object.";
 			}
 
 			JsonObject projectObj = projectRoot.getAsJsonObject();
@@ -71,14 +65,14 @@ public class ApiCaller {
 			// 3) Get the version IDs array
 			if (!projectObj.has("versions") || !projectObj.get("versions").isJsonArray()) {
 				System.out.println("[ERROR] 'versions' field is missing or not an array.");
-				return;
+				return "<br>" + slug + "<br>" + "[ERROR] 'versions' field is missing or not an array.";
 			}
 
 			JsonArray versionIds = projectObj.get("versions").getAsJsonArray();
 
 			if (versionIds.isEmpty()) {
 				System.out.println("[ERROR] No version IDs found in the project.");
-				return;
+				return "<br>" + slug + "<br>" + "[ERROR] No version IDs found in the project.";
 			}
 
 			// Ensure the destination directory exists
@@ -104,6 +98,7 @@ public class ApiCaller {
 				try (Response versionResponse = client.newCall(versionRequest).execute()) {
 					if (!versionResponse.isSuccessful()) {
 						System.out.println("[WARN] Failed to fetch version " + versionId + ". HTTP: " + versionResponse.code());
+						errors += "<br>" + slug + "<br>" + "[WARN] Failed to fetch version " + versionId + ". HTTP: " + versionResponse.code() + "<br>";
 						continue; // skip to next
 					}
 
@@ -114,6 +109,7 @@ public class ApiCaller {
 
 					if (!versionRoot.isJsonObject()) {
 						System.out.println("[WARN] Version JSON is not an object for ID " + versionId);
+						errors += "<br>" + slug + "<br>" + "[WARN] Version JSON is not an object for ID " + versionId + "<br>";
 						continue;
 					}
 
@@ -122,6 +118,7 @@ public class ApiCaller {
 					// 4b) Check if "game_versions" contains our targetGameVersion
 					if (!versionObj.has("game_versions") || !versionObj.get("game_versions").isJsonArray()) {
 						System.out.println("[WARN] 'game_versions' missing or not array for " + versionId);
+						errors += "<br>" + slug + "<br>" + "[WARN] 'game_versions' missing or not array for " + versionId + "<br>";
 						continue;
 					}
 
@@ -143,6 +140,7 @@ public class ApiCaller {
 					// 4c) Check if "loaders" contains our targetLoader
 					if (!versionObj.has("loaders") || !versionObj.get("loaders").isJsonArray()) {
 						System.out.println("[WARN] 'loaders' missing or not array for " + versionId);
+						errors += "<br>" + slug + "<br>" + "[WARN] 'loaders' missing or not array for " + versionId + "<br>";
 						continue;
 					}
 
@@ -167,6 +165,7 @@ public class ApiCaller {
 					// 4d) Now find the primary file or first file
 					if (!versionObj.has("files") || !versionObj.get("files").isJsonArray()) {
 						System.out.println("[WARN] No 'files' array found for version ID " + versionId);
+						errors += "<br>" + slug + "<br>" + "[WARN] No 'files' array found for version ID " + versionId + "<br>";
 						continue;
 					}
 
@@ -174,6 +173,7 @@ public class ApiCaller {
 
 					if (filesArray.isEmpty()) {
 						System.out.println("[WARN] Empty files array for version ID " + versionId);
+						errors += "<br>" + slug + "<br>" + "[WARN] Empty files array for version ID " + versionId + "<br>";
 						continue;
 					}
 
@@ -204,6 +204,7 @@ public class ApiCaller {
 					try (Response fileResp = client.newCall(fileRequest).execute()) {
 						if (!fileResp.isSuccessful()) {
 							System.out.println("[ERROR] Failed to download file. HTTP code: " + fileResp.code());
+							errors += "<br>" + slug + "<br>" + "[ERROR] Failed to download file. HTTP code: " + fileResp.code() + "<br>";
 							continue;
 						}
 
@@ -223,6 +224,7 @@ public class ApiCaller {
 						System.out.println("[INFO] Successfully downloaded " + filename);
 					} catch (IOException e) {
 						System.out.println("[ERROR] Exception while downloading file: " + e.getMessage());
+						errors += "<br>" + slug + "<br>" + "[ERROR] Exception while downloading file: " + e.getMessage() + "<br>";
 						e.printStackTrace();
 					}
 
@@ -231,17 +233,22 @@ public class ApiCaller {
 					break;
 				} catch (IOException e) {
 					System.out.println("[ERROR] Exception while fetching version " + versionId + ": " + e.getMessage());
+					errors += "<br>" + slug + "<br>" + "[ERROR] Exception while fetching version " + versionId + ": " + e.getMessage() + "<br>";
 					e.printStackTrace();
 				}
 			}
 
 			if (!foundMatch) {
 				System.out.println("[INFO] No version found matching game version '" + targetGameVersion + "' and loader '" + "fabric" + "'.");
+				errors += "<br>" + slug + "<br>" + "[INFO] No version found matching game version '" + targetGameVersion + "' and loader '" + "fabric" + "'.\n";
 			}
 		} catch (IOException e) {
 			System.out.println("[ERROR] Exception while fetching project: " + e.getMessage());
+			errors += "<br>" + slug + "<br>" + "[ERROR] Exception while fetching project: " + e.getMessage() + "<br>";
 			e.printStackTrace();
 		}
+
+		return errors;
 	}
 
 	// Optional main method for quick testing

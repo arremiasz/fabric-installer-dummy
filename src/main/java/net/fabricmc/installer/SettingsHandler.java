@@ -12,28 +12,47 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * @author: FabricMC
+ * @modified arremiasz
  */
 
 package net.fabricmc.installer;
 
-import java.awt.*;
+import java.awt.Color;
+import java.awt.Desktop;
+import java.awt.Dimension;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
+import java.awt.Image;
+import java.awt.Insets;
+import java.awt.Toolkit;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.io.FileNotFoundException;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.nio.file.FileVisitResult;
-import java.nio.file.FileVisitor;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.SimpleFileVisitor;
-import java.nio.file.attribute.BasicFileAttributes;
 import java.text.MessageFormat;
 import java.util.List;
 import java.util.Locale;
 
-import javax.swing.*;
+import javax.swing.DefaultListModel;
+import javax.swing.ImageIcon;
+import javax.swing.JButton;
+import javax.swing.JCheckBox;
+import javax.swing.JComboBox;
+import javax.swing.JEditorPane;
+import javax.swing.JFileChooser;
+import javax.swing.JList;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JTextArea;
+import javax.swing.JTextField;
+import javax.swing.SwingUtilities;
 import javax.swing.border.EmptyBorder;
 import javax.swing.event.HyperlinkEvent;
 
@@ -54,6 +73,9 @@ public class SettingsHandler extends Handler {
 	private JTextField modImportLocation;
 	public JScrollPane scrollableTextArea;
 	public JTextArea modrinthMods;
+	public JList<String> importedMods;
+	public JScrollPane scrollableModsList;
+	public DefaultListModel<String> listModel = new DefaultListModel<>();
 
 	@Override
 	public JPanel makePanel(InstallerGui installerGui) {
@@ -114,9 +136,16 @@ public class SettingsHandler extends Handler {
 		});
 		modImportLocation.setEditable(false);
 
+		//add a row for an area that displays the files in the mods folder in modImportLocation
+		addRow(pane, c, "prompt.install.list", scrollableModsList = new JScrollPane(importedMods = new JList<>(listModel)));
+		scrollableModsList.setPreferredSize(new Dimension(200, 100));
+		scrollableModsList.setMinimumSize(new Dimension(200, 100));
+		updateListModel();
+
 		// add a row for jscrollpane with a jtextarea inside it that lets the user input modrinth mod urls
 		addRow(pane, c, "prompt.install.mods.modrinth", scrollableTextArea = new JScrollPane(modrinthMods = new JTextArea()));
 		scrollableTextArea.setPreferredSize(new Dimension(200, 100));
+		scrollableTextArea.setMinimumSize(new Dimension(200, 100));
 		modrinthMods.setLineWrap(true);
 		modrinthMods.setWrapStyleWord(true);
 		modrinthMods.setEditable(true);
@@ -135,8 +164,10 @@ public class SettingsHandler extends Handler {
 			}
 		});
 
-		for (String mod : mods) {
-			modrinthMods.append(mod + "\n");
+		if (mods != null) {
+			for (String mod : mods) {
+				modrinthMods.append(mod + "\n");
+			}
 		}
 
 		addLastRow(pane, c, null, buttonInstall = new JButton(Utils.BUNDLE.getString("prompt.save")));
@@ -162,6 +193,7 @@ public class SettingsHandler extends Handler {
 			requestedMCVersion = gameVersionComboBox.getSelectedItem().toString();
 			requestedFabricVersion = loaderVersionComboBox.getSelectedItem().toString();
 			mods = new String[modrinthMods.getText().split("\n").length];
+
 			for (int i = 0; i < mods.length; i++) {
 				mods[i] = modrinthMods.getText().split("\n")[i];
 			}
@@ -180,6 +212,7 @@ public class SettingsHandler extends Handler {
 			// copy all files from modImportLocation to a folder called mods in the directory of the executable
 			if (modImportLocation.getText() != null && !modImportLocation.getText().isEmpty()) {
 				Path modsPath = Paths.get(System.getProperty("user.dir"), "mods");
+
 				try {
 					if (Files.exists(modsPath)) {
 						Files.walk(modsPath).forEach(source -> {
@@ -205,6 +238,7 @@ public class SettingsHandler extends Handler {
 				}
 			}
 
+			updateListModel();
 			buttonInstall.setEnabled(false);
 		});
 
@@ -411,5 +445,22 @@ public class SettingsHandler extends Handler {
 		addRow(pane, c, null, createProfile = new JCheckBox(Utils.BUNDLE.getString("option.create.profile"), true));
 
 		installLocation.setText(Utils.findDefaultInstallDir().toString());
+	}
+
+	protected void updateListModel() {
+		Path modsPath = Paths.get(System.getProperty("user.dir"), "mods");
+		listModel.clear();
+
+		try {
+			if (Files.exists(modsPath)) {
+				Files.walk(modsPath).forEach(source -> {
+					if (!source.getFileName().toString().equals("mods")) {
+						listModel.addElement(source.getFileName().toString());
+					}
+				});
+			}
+		} catch (IOException ex) {
+			ex.printStackTrace();
+		}
 	}
 }

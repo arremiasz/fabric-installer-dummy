@@ -12,10 +12,14 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * @author: FabricMC
+ * @modified arremiasz
  */
 
 package net.fabricmc.installer.client;
 
+import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Desktop;
 import java.awt.Dimension;
@@ -33,7 +37,18 @@ import java.text.MessageFormat;
 import java.util.List;
 import java.util.Locale;
 
-import javax.swing.*;
+import javax.swing.ImageIcon;
+import javax.swing.JButton;
+import javax.swing.JCheckBox;
+import javax.swing.JComboBox;
+import javax.swing.JDialog;
+import javax.swing.JEditorPane;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JProgressBar;
+import javax.swing.JTextField;
+import javax.swing.SwingUtilities;
 import javax.swing.border.EmptyBorder;
 import javax.swing.event.HyperlinkEvent;
 
@@ -52,7 +67,7 @@ import net.fabricmc.installer.util.Utils;
 
 public class ClientHandler extends Handler {
 	private JCheckBox createProfile;
-	private JProgressBar progressBar;
+	private JDialog installingWindow;
 
 	@Override
 	public JPanel makePanel(InstallerGui installerGui) {
@@ -62,6 +77,19 @@ public class ClientHandler extends Handler {
 		GridBagConstraints c = new GridBagConstraints();
 		c.insets = new Insets(VERTICAL_SPACING, HORIZONTAL_SPACING, VERTICAL_SPACING, HORIZONTAL_SPACING);
 		c.gridx = c.gridy = 0;
+
+		// make installingWindow a Jdialog that displays text "downloading"
+		//Window topLevelWindow = SwingUtilities.getWindowAncestor(pane);
+		//installingWindow = new JDialog(topLevelWindow, "Downloading", Dialog.ModalityType.MODELESS);
+		//installingWindow.setSize(200, 100);
+		//installingWindow.setLayout(new BorderLayout());
+		//installingWindow.add(new JLabel("Downloading...", SwingConstants.CENTER), BorderLayout.CENTER);
+		//installingWindow.setLocationRelativeTo(pane);
+		//installingWindow.setDefaultCloseOperation(JDialog.DO_NOTHING_ON_CLOSE);
+
+		JProgressBar progressBar = new JProgressBar();
+		progressBar.setIndeterminate(true);
+		installingWindow.add(progressBar, BorderLayout.CENTER);
 
 		setupPane1(pane, c, installerGui);
 
@@ -111,11 +139,6 @@ public class ClientHandler extends Handler {
 			buttonInstall.setEnabled(false);
 			install();
 		});
-
-		addRow(pane, c, null, progressBar = new JProgressBar());
-		//progressBar.setString("");
-		progressBar.setVisible(false);
-		progressBar.setIndeterminate(false);
 
 		Main.LOADER_META.onComplete(versions -> {
 			int stableIndex = -1;
@@ -173,48 +196,101 @@ public class ClientHandler extends Handler {
 			return;
 		}
 
-		SwingUtilities.invokeLater(() -> progressBar.setVisible(true));
-		doInstall();
-		SwingUtilities.invokeLater(() -> progressBar.setValue(20));
-		SwingUtilities.invokeLater(() -> statusLabel.setText(Utils.BUNDLE.getString("prompt.install.mods.title")));
-		doManualModInstall();
-		SwingUtilities.invokeLater(() -> progressBar.setValue(80));
-		SwingUtilities.invokeLater(() -> statusLabel.setText(Utils.BUNDLE.getString("prompt.install.mods.modrinth")));
-		doModInstall();
-		SwingUtilities.invokeLater(() -> statusLabel.setText(Utils.BUNDLE.getString("progress.done")));
-		SwingUtilities.invokeLater(() -> progressBar.setValue(100));
-	}
-
-	// pulls mods from modrinth
-	private void doModInstall() {
-
-		if (mods.length == 1 && mods[0].equals("")) { return;}
-		// check if the mods directory exists
 		Path mcDir = Paths.get(installLocation.getText());
 		Path modsDir = mcDir.resolve("mods");
+		String exePath = System.getProperty("user.dir");
+		Path exeDir = Paths.get(exePath);
+		Path exeModsDir = exeDir.resolve("mods");
 
 		try {
 			if (Files.exists(modsDir) && Files.list(modsDir).count() > 0) {
 				int result = JOptionPane.showConfirmDialog(null, Utils.BUNDLE.getString("prompt.install.mods.overwrite"), Utils.BUNDLE.getString("prompt.install.mods.title"), JOptionPane.YES_NO_OPTION);
 
 				if (result != JOptionPane.YES_OPTION) {
+					buttonInstall.setEnabled(true);
 					return;
 				}
+			}
+
+			// check if any mods in modsDir are also in the mods list
+			String errors = "";
+
+			for (String mod : mods) {
+				String slug = mod.replaceFirst("^(https?://)?(www\\.)?modrinth\\.com/mod/", "");
+
+				if (slug.equals("")) {
+					continue;
+				}
+
+				// if any file name contains slug, show error
+				if (Files.list(exeModsDir).anyMatch(path -> path.getFileName().toString().contains(slug))) {
+					errors = "<br>" + slug + "<br>" + Utils.BUNDLE.getString("prompt.exception.duplicate");
+				}
+			}
+
+			if (!errors.equals("")) {
+				showFailedMessage(errors);
+				updateProgress("An error occurred");
+				buttonInstall.setEnabled(true);
+				return;
 			}
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		}
 
-		for (String mod : mods) {
-			ApiCaller.apiGrabMod(mod, requestedMCVersion, modsDir.toString());
+		doInstall();
+		doManualModInstall();
+		doModInstall();
+	}
+
+	private void showInstallingWindow() {
+		// make a jdialog that displays text "downloading" and does not pause thread execution, and gives time for the UI to update
+		installingWindow = new JDialog();
+		installingWindow.setLayout(new BorderLayout());
+		installingWindow.setTitle("Downloading from Modrinth...");
+		installingWindow.setSize(300, 100);
+		installingWindow.setLocationRelativeTo(null);
+		installingWindow.setDefaultCloseOperation(JDialog.DO_NOTHING_ON_CLOSE);
+		installingWindow.setVisible(true);
+	}
+
+	private void hideInstallingWindow() {
+		installingWindow.dispose();
+	}
+
+	// pulls mods from modrinth
+	private void doModInstall() {
+		if (mods.length == 1 && mods[0].equals("")) {
+			return;
 		}
 
-		SwingUtilities.invokeLater(this::showInstalledModsMessage);
+		updateProgress("Downloading mods");
+		showInstallingWindow();
+
+		// check if the mods directory exists
+		Path mcDir = Paths.get(installLocation.getText());
+		Path modsDir = mcDir.resolve("mods");
+		String errors = "";
+
+		for (String mod : mods) {
+			errors += ApiCaller.apiGrabMod(mod, requestedMCVersion, modsDir.toString());
+		}
+
+		SwingUtilities.invokeLater(this::hideInstallingWindow);
+
+		if (!errors.equals("")) {
+			updateProgress("An error occurred");
+			showFailedMessage(errors);
+			return;
+		}
+
+		updateProgress("Done");
 	}
 
 	// exe has to be in a directory with a folder containing mods
 	private void doManualModInstall() {
-		new Thread(() -> {
+		Thread doManualModInstall = new Thread(() -> {
+			updateProgress("Copying mods");
 			// check if the mods directory exists
 			Path mcDir = Paths.get(installLocation.getText());
 			Path modsDir = mcDir.resolve("mods");
@@ -227,18 +303,20 @@ public class ClientHandler extends Handler {
 
 			if (Files.notExists(exeModsDir)) {
 				return;
-//				showFailedMessage(Utils.BUNDLE.getString("prompt.exception.missing"));
-//				throw new RuntimeException(Utils.BUNDLE.getString("prompt.exception.missing"));
+				//showFailedMessage(Utils.BUNDLE.getString("prompt.exception.missing"));
+				//throw new RuntimeException(Utils.BUNDLE.getString("prompt.exception.missing"));
 			}
 
 			// if there are files in the mods directory, pause the thread and ask the user if they want to overwrite them
 			try {
 				if (Files.exists(modsDir) && Files.list(modsDir).count() > 0) {
-					int result = JOptionPane.showConfirmDialog(null, Utils.BUNDLE.getString("prompt.install.mods.overwrite"), Utils.BUNDLE.getString("prompt.install.mods.title"), JOptionPane.YES_NO_OPTION);
-
-					if (result != JOptionPane.YES_OPTION) {
-						return;
-					}
+					Files.walk(modsDir).forEach(source -> {
+						try {
+							Files.delete(source);
+						} catch (IOException ex) {
+							//ex.printStackTrace();
+						}
+					});
 				}
 			} catch (IOException e) {
 				throw new RuntimeException(e);
@@ -259,9 +337,19 @@ public class ClientHandler extends Handler {
 				e.printStackTrace();
 			}
 
+			updateProgress("Done copying mods");
 			//showInstalledModsMessage();
-			SwingUtilities.invokeLater(this::showInstalledModsMessage);
-		}).start();
+			// prompt.install.mods.imported.successful
+			//SwingUtilities.invokeLater(() -> showInstalledModsMessage("prompt.install.mods.imported.successful"));
+		});
+
+		doManualModInstall.start();
+
+		try {
+			doManualModInstall.join();
+		} catch (InterruptedException e) {
+			throw new RuntimeException(e);
+		}
 	}
 
 	private void doInstall() {
@@ -271,7 +359,7 @@ public class ClientHandler extends Handler {
 
 		System.out.println("Installing");
 
-		new Thread(() -> {
+		Thread doInstall = new Thread(() -> {
 			try {
 				updateProgress(new MessageFormat(Utils.BUNDLE.getString("progress.installing")).format(new Object[]{loaderVersion.name}));
 				Path mcPath = Paths.get(installLocation.getText());
@@ -317,7 +405,15 @@ public class ClientHandler extends Handler {
 			} finally {
 				buttonInstall.setEnabled(true);
 			}
-		}).start();
+		});
+
+		doInstall.start();
+
+		try {
+			doInstall.join();
+		} catch (InterruptedException e) {
+			throw new RuntimeException(e);
+		}
 	}
 
 	private void showFailedMessage(String error) {
@@ -330,8 +426,8 @@ public class ClientHandler extends Handler {
 		JOptionPane.showMessageDialog(null, pane, Utils.BUNDLE.getString("prompt.exception.occurrence"), JOptionPane.INFORMATION_MESSAGE, new ImageIcon(iconImage.getScaledInstance(64, 64, Image.SCALE_DEFAULT)));
 	}
 
-	private void showInstalledModsMessage() {
-		JEditorPane pane = new JEditorPane("text/html", "<html><body style=\"" + buildEditorPaneStyle() + "\">" + Utils.BUNDLE.getString("prompt.install.mods.successful") + "</body></html>");
+	private void showInstalledModsMessage(String prompt) {
+		JEditorPane pane = new JEditorPane("text/html", "<html><body style=\"" + buildEditorPaneStyle() + "\">" + Utils.BUNDLE.getString(prompt) + "</body></html>");
 		pane.setBackground(new Color(0, 0, 0, 0));
 		pane.setEditable(false);
 		pane.setCaret(new NoopCaret());
@@ -379,13 +475,9 @@ public class ClientHandler extends Handler {
 	}
 
 	private void showLauncherOpenMessage() {
-		int result = JOptionPane.showConfirmDialog(null, Utils.BUNDLE.getString("prompt.launcher.open.body"), Utils.BUNDLE.getString("prompt.launcher.open.tile"), JOptionPane.YES_NO_OPTION);
+		JOptionPane.showConfirmDialog(null, Utils.BUNDLE.getString("prompt.launcher.open.body"), Utils.BUNDLE.getString("prompt.launcher.open.tile"), JOptionPane.DEFAULT_OPTION);
 
-		if (result == JOptionPane.YES_OPTION) {
-			doInstall();
-		} else {
-			buttonInstall.setEnabled(true);
-		}
+		buttonInstall.setEnabled(true);
 	}
 
 	@Override

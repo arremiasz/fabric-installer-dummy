@@ -143,11 +143,11 @@ jar {
 	}
 }
 
-spotless {
-	java {
-		licenseHeaderFile(rootProject.file("HEADER"))
-	}
-}
+//spotless {
+//	java {
+//		licenseHeaderFile(rootProject.file("HEADER"))
+//	}
+//}
 
 publishing {
 	publications {
