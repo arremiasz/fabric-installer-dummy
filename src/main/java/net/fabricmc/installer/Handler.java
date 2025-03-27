@@ -80,7 +80,7 @@ public abstract class Handler implements InstallerProgress {
 
 	public JCheckBox snapshotCheckBox;
 
-	private JPanel pane;
+	protected JPanel pane;
 
 	public Handler() {
 		String exePath = System.getProperty("user.dir");

@@ -29,6 +29,7 @@ import java.awt.Insets;
 import java.awt.Toolkit;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -56,6 +57,8 @@ import javax.swing.SwingUtilities;
 import javax.swing.border.EmptyBorder;
 import javax.swing.event.HyperlinkEvent;
 
+import org.zeroturnaround.zip.NameMapper;
+import org.zeroturnaround.zip.ZipUtil;
 import com.google.gson.Gson;
 
 import net.fabricmc.installer.client.ClientInstaller;
@@ -76,6 +79,7 @@ public class SettingsHandler extends Handler {
 	public JList<String> importedMods;
 	public JScrollPane scrollableModsList;
 	public DefaultListModel<String> listModel = new DefaultListModel<>();
+	public JButton buttonZip;
 
 	@Override
 	public JPanel makePanel(InstallerGui installerGui) {
@@ -170,7 +174,7 @@ public class SettingsHandler extends Handler {
 			}
 		}
 
-		addLastRow(pane, c, null, buttonInstall = new JButton(Utils.BUNDLE.getString("prompt.save")));
+		addRow(pane, c, null, buttonInstall = new JButton(Utils.BUNDLE.getString("prompt.save")));
 		buttonInstall.addActionListener(e -> {
 			String exePath = System.getProperty("user.dir");
 
@@ -240,6 +244,21 @@ public class SettingsHandler extends Handler {
 
 			updateListModel();
 			buttonInstall.setEnabled(false);
+			buttonZip.setEnabled(true);
+		});
+
+		addLastRow(pane, c, null, buttonZip = new JButton(Utils.BUNDLE.getString("prompt.zip")));
+		buttonZip.setEnabled(false);
+		buttonZip.addActionListener(e -> {
+			buttonZip.setEnabled(false);
+
+			try {
+				createZip();
+			} catch (IOException ex) {
+				showFailedMessage("Unable to create zip.");
+				ex.printStackTrace();
+				buttonZip.setEnabled(true);
+			}
 		});
 
 		Main.LOADER_META.onComplete(versions -> {
@@ -462,5 +481,49 @@ public class SettingsHandler extends Handler {
 		} catch (IOException ex) {
 			ex.printStackTrace();
 		}
+	}
+
+	private void showFailedMessage(String error) {
+		JEditorPane pane = new JEditorPane("text/html", "<html><body style=\"" + buildEditorPaneStyle() + "\">" + error + "</body></html>");
+		pane.setBackground(new Color(0, 0, 0, 0));
+		pane.setEditable(false);
+		pane.setCaret(new NoopCaret());
+
+		final Image iconImage = Toolkit.getDefaultToolkit().getImage(ClassLoader.getSystemClassLoader().getResource("icon.png"));
+		JOptionPane.showMessageDialog(null, pane, Utils.BUNDLE.getString("prompt.exception.occurrence"), JOptionPane.INFORMATION_MESSAGE, new ImageIcon(iconImage.getScaledInstance(64, 64, Image.SCALE_DEFAULT)));
+	}
+
+	private void showMessage(String prompt) {
+		JEditorPane pane = new JEditorPane("text/html", "<html><body style=\"" + buildEditorPaneStyle() + "\">" + prompt + "</body></html>");
+		pane.setBackground(new Color(0, 0, 0, 0));
+		pane.setEditable(false);
+		pane.setCaret(new NoopCaret());
+
+		final Image iconImage = Toolkit.getDefaultToolkit().getImage(ClassLoader.getSystemClassLoader().getResource("icon.png"));
+		JOptionPane.showMessageDialog(null, pane, Utils.BUNDLE.getString("installer.title"), JOptionPane.INFORMATION_MESSAGE, new ImageIcon(iconImage.getScaledInstance(64, 64, Image.SCALE_DEFAULT)));
+	}
+
+	public void createZip() throws IOException {
+		// to zip: fabric launcher, mods folder, config.json
+		Path exePath = Paths.get(System.getProperty("user.dir"), "fabric-mod-installer-tool.exe");
+		Path modsPath = Paths.get(System.getProperty("user.dir"), "/mods");
+		Path configPath = Paths.get(System.getProperty("user.dir"), "config.json");
+		Path[] paths = {exePath, modsPath};
+
+		if (Files.exists(modsPath)) {
+			ZipUtil.pack(new File("mods/"), new File("fabric-mod-installer-tool.zip"), new NameMapper() {
+				public String map(String name) {
+					return "mods/" + name;
+				}
+			});
+
+			ZipUtil.addEntry(new File("fabric-mod-installer-tool.zip"), "config.json", configPath.toFile());
+			ZipUtil.addEntry(new File("fabric-mod-installer-tool.zip"), "fabric-mod-installer-tool.exe", exePath.toFile());
+		} else {
+			ZipUtil.packEntry(exePath.toFile(), new File("fabric-mod-installer-tool.zip"));
+			ZipUtil.addEntry(new File("fabric-mod-installer-tool.zip"), "config.json", configPath.toFile());
+		}
+
+		showMessage("Zip created successfully.");
 	}
 }

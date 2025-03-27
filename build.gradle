@@ -38,6 +38,7 @@ dependencies {
 
 	implementation 'com.google.code.gson:gson:2.10.1'
 	implementation 'com.squareup.okhttp3:okhttp:4.10.0'
+	implementation group: 'org.zeroturnaround', name: 'zt-zip', version: '1.17'
 }
 
 base {

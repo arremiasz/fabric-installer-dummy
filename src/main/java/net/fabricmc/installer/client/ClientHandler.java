@@ -46,7 +46,6 @@ import javax.swing.JEditorPane;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
-import javax.swing.JProgressBar;
 import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
 import javax.swing.border.EmptyBorder;
@@ -87,9 +86,9 @@ public class ClientHandler extends Handler {
 		//installingWindow.setLocationRelativeTo(pane);
 		//installingWindow.setDefaultCloseOperation(JDialog.DO_NOTHING_ON_CLOSE);
 
-		JProgressBar progressBar = new JProgressBar();
-		progressBar.setIndeterminate(true);
-		installingWindow.add(progressBar, BorderLayout.CENTER);
+		//JProgressBar progressBar = new JProgressBar();
+		//progressBar.setIndeterminate(true);
+		//installingWindow.add(progressBar, BorderLayout.CENTER);
 
 		setupPane1(pane, c, installerGui);
 
